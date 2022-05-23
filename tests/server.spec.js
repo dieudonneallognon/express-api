@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
+const request = require("supertest");
 const app = require("../app");
+const Task = require("../models/Task");
 
 mongoose
     .connect(
@@ -7,6 +9,14 @@ mongoose
     )
     .catch((err) => console.log(err));
 
-describe("Testing Jest and Supertest is working", () => {
-    it("Works !", () => {});
+describe("Testing Task CRUD", () => {
+    test("Serve the list of tasks", async () => {
+        const tasks = await Task.find({});
+
+        const response = await request(app).get("/api/tasks");
+
+        expect(JSON.stringify(response.body.data)).toEqual(
+            JSON.stringify(tasks)
+        );
+    });
 });
