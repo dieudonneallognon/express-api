@@ -4,6 +4,10 @@ const express = require("express");
 const Task = require("./models/Task");
 
 const TaskValidator = require("./validators/TaskValidator");
+const UserValidator = require("./validators/UserValidator");
+
+const jwt = require("jsonwebtoken");
+const User = require("./models/User");
 
 const app = express();
 
@@ -66,4 +70,28 @@ app.put("/api/tasks/:id", async (req, res) => {
     }
 });
 
+app.post("/api/register", async (req, res) => {
+    try {
+        const value = await UserValidator.validateAsync(req.body);
+
+        const user = await User.findOne({
+            email: value.email,
+            username: value.username,
+        });
+
+        if (user) {
+            const token = jwt.sign(
+                { pseudo: user.pseudo },
+                process.env.JWT_SECRET
+            );
+            user.token = token;
+            res.json({ pseudo: user.pseudo, token: token });
+        } else {
+            res.json({ message: "user exists" });
+        }
+    } catch (err) {
+        console.log(err);
+        res.json({ error: err.message });
+    }
+});
 module.exports = app;
