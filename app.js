@@ -30,4 +30,15 @@ app.post("/api/tasks", async (req, res) => {
     }
 });
 
+app.get("/api/tasks/:id", async (req, res) => {
+    try {
+        const { description, id, faite } = await Task.findById(req.params.id);
+        console.log(req.params.id);
+        res.json({ status: 200, data: { description, id, faite } });
+    } catch (err) {
+        console.log(err);
+        res.json({ error: err.message });
+    }
+});
+
 module.exports = app;
