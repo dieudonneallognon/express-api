@@ -52,4 +52,18 @@ app.delete("/api/tasks/:id", async (req, res) => {
     }
 });
 
+app.put("/api/tasks/:id", async (req, res) => {
+    try {
+        const value = await TaskValidator.validateAsync({
+            ...req.body,
+            id: req.params.id,
+        });
+        await Task.updateOne({ _id: req.params.id }, { ...req.body });
+        res.json({ status: 201, data: { ...value, id: req.params.id } });
+    } catch (err) {
+        console.log(err);
+        res.json({ error: err.message });
+    }
+});
+
 module.exports = app;
