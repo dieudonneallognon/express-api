@@ -15,6 +15,28 @@ const app = express();
 
 app.use(express.json());
 
+const isLoggedInMiddleware = async (req, res, next) => {
+    try {
+        const token = await Joi.object({
+            token: Joi.string().min(3),
+        })
+            .concat(TaskValidator)
+            .validateAsync({ token: req.headers["x-auth-token"], ...req.body });
+
+        const loggedUser = await User.findOne(jwt.decode(token));
+
+        if (loggedUser) {
+            req.body.creePar = loggedUser._id.toString();
+            next();
+            return;
+        }
+        res.json({ error: "Unauthorized", status: 401 });
+    } catch (err) {
+        console.log(err);
+        res.json({ error: err.message });
+    }
+};
+
 app.get("/api/tasks", async (req, res) => {
     try {
         const tasks = await Task.find({});
@@ -25,7 +47,7 @@ app.get("/api/tasks", async (req, res) => {
     }
 });
 
-app.post("/api/tasks", async (req, res) => {
+app.post("/api/tasks", isLoggedInMiddleware, async (req, res) => {
     try {
         const value = await TaskValidator.validateAsync(req.body);
         const { _id } = await Task.create(value);
@@ -46,7 +68,7 @@ app.get("/api/tasks/:id", async (req, res) => {
     }
 });
 
-app.delete("/api/tasks/:id", async (req, res) => {
+app.delete("/api/tasks/:id", isLoggedInMiddleware, async (req, res) => {
     try {
         await Task.deleteOne({
             id: req.params.id,
@@ -58,7 +80,7 @@ app.delete("/api/tasks/:id", async (req, res) => {
     }
 });
 
-app.put("/api/tasks/:id", async (req, res) => {
+app.put("/api/tasks/:id", isLoggedInMiddleware, async (req, res) => {
     try {
         const value = await TaskValidator.validateAsync({
             ...req.body,
@@ -77,12 +99,7 @@ app.post("/api/register", async (req, res) => {
         const value = await UserValidator.validateAsync(req.body);
 
         const user = await User.findOne({
-            $or: [
-                {
-                    email: value.email,
-                },
-                { username: value.username },
-            ],
+            $or: [{ email: value.email }, { username: value.username }],
         });
 
         if (!user) {

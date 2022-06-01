@@ -5,6 +5,7 @@ const TaskValidator = Joi.object({
     description: Joi.string().min(3).required(),
     faite: Joi.boolean().required(),
     id: Joi.objectId(),
+    creePar: Joi.string(),
 });
 
 module.exports = TaskValidator;
