@@ -6,8 +6,6 @@ const app = require("../app");
 const Task = require("../models/Task");
 const User = require("../models/User");
 
-const httpRequest = require();
-
 mongoose
     .connect(
         `mongodb://${process.env.MONGO_DB_HOST}:${process.env.MONGO_DB_PORT}/${process.env.MONGO_DB_NAME}`
@@ -27,6 +25,7 @@ describe("Testing Task CRUD", () => {
 
     beforeEach(async () => {
         await Task.remove();
+        await User.remove();
     });
 
     const testTask = {
@@ -34,9 +33,27 @@ describe("Testing Task CRUD", () => {
         faite: true,
     };
 
+    const testCredentials = {
+        email: "Rupert_Monahan@gmail.com",
+        username: "Kristina",
+        motdepasse: "root",
+    };
+
     test("Can add a new task to DB", async () => {
+        await User.create(testCredentials);
+
         const response = await request(app)
             .post("/api/tasks")
+            .set(
+                "x-auth-token",
+                jwt.sign(
+                    {
+                        email: testCredentials.email,
+                        username: testCredentials.username,
+                    },
+                    process.env.JWT_SECRET
+                )
+            )
             .send(testTask)
             .expect("Content-Type", /json/);
         const { description, faite } = response.body.data;
@@ -45,19 +62,35 @@ describe("Testing Task CRUD", () => {
     });
 
     test("Can update a task in DB", async () => {
-        const task = await Task.create(testTask);
+        const user = await User.create({
+            motdepasse: "root",
+            email: "Keshaun_Altenwerth@yahoo.com",
+            username: "Geraldine_Johns",
+        });
 
+        testTask.creePar = user._id.toString();
         testTask.description = "Test2";
         testTask.faite = false;
 
+        const { description, faite, creePar, _id, ...ignore } =
+            await Task.create(testTask);
+
         const response = await request(app)
-            .put("/api/tasks/" + task._id)
+            .put(`/api/tasks/${_id + ""}`)
+            .set(
+                "x-auth-token",
+                jwt.sign(
+                    {
+                        email: "Keshaun_Altenwerth@yahoo.com",
+                        username: "Geraldine_Johns",
+                    },
+                    process.env.JWT_SECRET
+                )
+            )
             .send(testTask)
             .expect("Content-Type", /json/);
 
-        const { description, faite } = response.body.data;
-
-        expect({ description, faite }).toEqual(testTask);
+        expect(response.body.data).toEqual({ ...testTask, id: _id + "" });
     });
 });
 

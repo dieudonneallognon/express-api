@@ -17,16 +17,38 @@ app.use(express.json());
 
 const isLoggedInMiddleware = async (req, res, next) => {
     try {
-        const token = await Joi.object({
+        const data = await Joi.object({
             token: Joi.string().min(3),
         })
             .concat(TaskValidator)
             .validateAsync({ token: req.headers["x-auth-token"], ...req.body });
 
-        const loggedUser = await User.findOne(jwt.decode(token));
+        const loggedUser = await User.findOne(jwt.decode(data.token));
 
         if (loggedUser) {
             req.body.creePar = loggedUser._id.toString();
+            next();
+            return;
+        }
+        res.json({ error: "Unauthorized", status: 401 });
+    } catch (err) {
+        console.log(err);
+        res.json({ error: err.message });
+    }
+};
+
+const isAuthorMiddleware = async (req, res, next) => {
+    try {
+        const token = await Joi.object({
+            token: Joi.string().min(3),
+            id: Joi.string().min(3),
+        }).validateAsync({ token: req.headers["x-auth-token"], ...req.params });
+
+        const user = await User.findOne(jwt.decode(token));
+        const task = await Task.findById(req.params.id);
+
+        if (user && task && task.creePar.toString() === user._id.toString()) {
+            req.body.creePar = user._id.toString();
             next();
             return;
         }
@@ -68,12 +90,14 @@ app.get("/api/tasks/:id", async (req, res) => {
     }
 });
 
-app.delete("/api/tasks/:id", isLoggedInMiddleware, async (req, res) => {
+app.delete("/api/tasks/:id", isAuthorMiddleware, async (req, res) => {
     try {
-        await Task.deleteOne({
+        const task = await Task.deleteOne({
             id: req.params.id,
+            creePar: req.body.creePar,
         });
-        res.json({ status: 202 });
+
+        res.json({ status: 202, data: task });
     } catch (err) {
         console.log(err);
         res.json({ error: err.message });
@@ -86,6 +110,7 @@ app.put("/api/tasks/:id", isLoggedInMiddleware, async (req, res) => {
             ...req.body,
             id: req.params.id,
         });
+
         await Task.updateOne({ _id: req.params.id }, { ...req.body });
         res.json({ status: 201, data: { ...value, id: req.params.id } });
     } catch (err) {
