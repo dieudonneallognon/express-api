@@ -1,10 +1,10 @@
+const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const request = require("supertest");
+
 const app = require("../app");
 const Task = require("../models/Task");
 const User = require("../models/User");
-
-const httpRequest = require();
 
 mongoose
     .connect(
@@ -25,65 +25,106 @@ describe("Testing Task CRUD", () => {
 
     beforeEach(async () => {
         await Task.remove();
-        expect(await (await Task.find({})).length).toEqual(0);
+        await User.remove();
     });
 
+    const testTask = {
+        description: "Test",
+        faite: true,
+    };
+
+    const testCredentials = {
+        email: "Rupert_Monahan@gmail.com",
+        username: "Kristina",
+        motdepasse: "root",
+    };
+
     test("Can add a new task to DB", async () => {
+        await User.create(testCredentials);
+
         const response = await request(app)
             .post("/api/tasks")
-            .send({
-                description: "Test",
-                faite: true,
-            })
+            .set(
+                "x-auth-token",
+                jwt.sign(
+                    {
+                        email: testCredentials.email,
+                        username: testCredentials.username,
+                    },
+                    process.env.JWT_SECRET
+                )
+            )
+            .send(testTask)
             .expect("Content-Type", /json/);
-        const { description, faite, id } = response.body.data;
+        const { description, faite } = response.body.data;
 
-        expect(JSON.stringify({ description, faite, id: id })).toMatch(
-            JSON.stringify(response.body.data)
-        );
+        expect({ description, faite }).toEqual(testTask);
     });
 
     test("Can update a task in DB", async () => {
-        const task = await Task.create({
-            description: "Test",
-            faite: true,
+        const user = await User.create({
+            motdepasse: "root",
+            email: "Keshaun_Altenwerth@yahoo.com",
+            username: "Geraldine_Johns",
         });
 
+        testTask.creePar = user._id.toString();
+        testTask.description = "Test2";
+        testTask.faite = false;
+
+        const { description, faite, creePar, _id, ...ignore } =
+            await Task.create(testTask);
+
         const response = await request(app)
-            .put("/api/tasks/" + task._id)
-            .send({
-                description: "Test2",
-                faite: false,
-            })
+            .put(`/api/tasks/${_id + ""}`)
+            .set(
+                "x-auth-token",
+                jwt.sign(
+                    {
+                        email: "Keshaun_Altenwerth@yahoo.com",
+                        username: "Geraldine_Johns",
+                    },
+                    process.env.JWT_SECRET
+                )
+            )
+            .send(testTask)
             .expect("Content-Type", /json/);
 
-        const { description, faite, id } = response.body.data;
-
-        expect(JSON.stringify({ description, faite, id: id })).toMatch(
-            JSON.stringify(response.body.data)
-        );
+        expect(response.body.data).toEqual({ ...testTask, id: _id + "" });
     });
 });
 
 describe("Testing User CRUD", () => {
-    beforeEach(async () => {
+    beforeAll(async () => {
         await User.remove();
         expect(await (await User.find({})).length).toEqual(0);
     });
 
+    const testCredentials = {
+        email: "Rupert_Monahan@gmail.com",
+        username: "Kristina",
+        motdepasse: "root",
+    };
+
     test("User can register", async () => {
         const response = await request(app)
             .post("/api/register")
-            .send({
-                email: "Rupert_Monahan@gmail.com",
-                username: "Kristina",
-                motdepasse: "root",
-            })
+            .send(testCredentials)
             .expect("Content-Type", /json/);
-        const { username, email, token } = response.body.data;
+        const { motdepasse, ...keep } = testCredentials;
 
-        expect(JSON.stringify({ username, email, token })).toMatch(
-            JSON.stringify(response.body.data)
-        );
+        expect(response.body.data).toEqual(keep);
+    });
+
+    test("User can login", async () => {
+        const response = await request(app)
+            .post("/api/login")
+            .send(testCredentials)
+            .expect("Content-Type", /json/);
+
+        const { username, email } = jwt.decode(response.body.data.token);
+        const { motdepasse, ...keep } = testCredentials;
+
+        expect({ username, email }).toEqual(keep);
     });
 });
