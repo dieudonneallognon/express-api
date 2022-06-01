@@ -1,12 +1,13 @@
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+
 require("dotenv").config();
 
 const express = require("express");
-const Task = require("./models/Task");
-
 const TaskValidator = require("./validators/TaskValidator");
 const UserValidator = require("./validators/UserValidator");
 
-const jwt = require("jsonwebtoken");
+const Task = require("./models/Task");
 const User = require("./models/User");
 
 const app = express();
@@ -75,19 +76,30 @@ app.post("/api/register", async (req, res) => {
         const value = await UserValidator.validateAsync(req.body);
 
         const user = await User.findOne({
-            email: value.email,
-            username: value.username,
+            $or: [
+                {
+                    email: value.email,
+                },
+                { username: value.username },
+            ],
         });
 
-        if (user) {
-            const token = jwt.sign(
-                { pseudo: user.pseudo },
-                process.env.JWT_SECRET
-            );
-            user.token = token;
-            res.json({ pseudo: user.pseudo, token: token });
+        if (!user) {
+            const response = {
+                username: req.body.username,
+                email: req.body.email,
+            };
+
+            const user = await User.create({
+                ...req.body,
+                motdepasse: bcrypt.hashSync(req.body.motdepasse, 10),
+            });
+
+            const token = jwt.sign(response, process.env.JWT_SECRET);
+
+            res.json({ status: 201, data: { ...response, token: token } });
         } else {
-            res.json({ message: "user exists" });
+            res.json({ message: "user email or username exists" });
         }
     } catch (err) {
         console.log(err);
