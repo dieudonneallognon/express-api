@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const request = require("supertest");
+
 const app = require("../app");
 const Task = require("../models/Task");
 const User = require("../models/User");
@@ -27,43 +27,37 @@ describe("Testing Task CRUD", () => {
 
     beforeEach(async () => {
         await Task.remove();
-        expect(await (await Task.find({})).length).toEqual(0);
     });
+
+    const testTask = {
+        description: "Test",
+        faite: true,
+    };
 
     test("Can add a new task to DB", async () => {
         const response = await request(app)
             .post("/api/tasks")
-            .send({
-                description: "Test",
-                faite: true,
-            })
+            .send(testTask)
             .expect("Content-Type", /json/);
-        const { description, faite, id } = response.body.data;
+        const { description, faite } = response.body.data;
 
-        expect(JSON.stringify({ description, faite, id: id })).toMatch(
-            JSON.stringify(response.body.data)
-        );
+        expect({ description, faite }).toEqual(testTask);
     });
 
     test("Can update a task in DB", async () => {
-        const task = await Task.create({
-            description: "Test",
-            faite: true,
-        });
+        const task = await Task.create(testTask);
+
+        testTask.description = "Test2";
+        testTask.faite = false;
 
         const response = await request(app)
             .put("/api/tasks/" + task._id)
-            .send({
-                description: "Test2",
-                faite: false,
-            })
+            .send(testTask)
             .expect("Content-Type", /json/);
 
-        const { description, faite, id } = response.body.data;
+        const { description, faite } = response.body.data;
 
-        expect(JSON.stringify({ description, faite, id: id })).toMatch(
-            JSON.stringify(response.body.data)
-        );
+        expect({ description, faite }).toEqual(testTask);
     });
 });
 
