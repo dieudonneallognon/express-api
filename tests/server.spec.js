@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const request = require("supertest");
 const app = require("../app");
 const Task = require("../models/Task");
+const User = require("../models/User");
 
 const httpRequest = require();
 
@@ -36,7 +37,6 @@ describe("Testing Task CRUD", () => {
             })
             .expect("Content-Type", /json/);
         const { description, faite, id } = response.body.data;
-        const res = await Task.findById(id);
 
         expect(JSON.stringify({ description, faite, id: id })).toMatch(
             JSON.stringify(response.body.data)
@@ -57,11 +57,32 @@ describe("Testing Task CRUD", () => {
             })
             .expect("Content-Type", /json/);
 
-        console.log(response.body.data);
         const { description, faite, id } = response.body.data;
-        const res = await Task.findById(id);
 
         expect(JSON.stringify({ description, faite, id: id })).toMatch(
+            JSON.stringify(response.body.data)
+        );
+    });
+});
+
+describe("Testing User CRUD", () => {
+    beforeEach(async () => {
+        await User.remove();
+        expect(await (await User.find({})).length).toEqual(0);
+    });
+
+    test("User can register", async () => {
+        const response = await request(app)
+            .post("/api/register")
+            .send({
+                email: "Rupert_Monahan@gmail.com",
+                username: "Kristina",
+                motdepasse: "root",
+            })
+            .expect("Content-Type", /json/);
+        const { username, email, token } = response.body.data;
+
+        expect(JSON.stringify({ username, email, token })).toMatch(
             JSON.stringify(response.body.data)
         );
     });
