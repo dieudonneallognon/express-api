@@ -1,3 +1,5 @@
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 const mongoose = require("mongoose");
 const request = require("supertest");
 const app = require("../app");
@@ -66,24 +68,36 @@ describe("Testing Task CRUD", () => {
 });
 
 describe("Testing User CRUD", () => {
-    beforeEach(async () => {
+    beforeAll(async () => {
         await User.remove();
         expect(await (await User.find({})).length).toEqual(0);
     });
 
+    const testCredentials = {
+        email: "Rupert_Monahan@gmail.com",
+        username: "Kristina",
+        motdepasse: "root",
+    };
+
     test("User can register", async () => {
         const response = await request(app)
             .post("/api/register")
-            .send({
-                email: "Rupert_Monahan@gmail.com",
-                username: "Kristina",
-                motdepasse: "root",
-            })
+            .send(testCredentials)
             .expect("Content-Type", /json/);
-        const { username, email, token } = response.body.data;
+        const { motdepasse, ...keep } = testCredentials;
 
-        expect(JSON.stringify({ username, email, token })).toMatch(
-            JSON.stringify(response.body.data)
-        );
+        expect(response.body.data).toEqual(keep);
+    });
+
+    test("User can login", async () => {
+        const response = await request(app)
+            .post("/api/login")
+            .send(testCredentials)
+            .expect("Content-Type", /json/);
+
+        const { username, email } = jwt.decode(response.body.data.token);
+        const { motdepasse, ...keep } = testCredentials;
+
+        expect({ username, email }).toEqual(keep);
     });
 });

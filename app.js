@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const Joi = require("joi");
 
 require("dotenv").config();
 
@@ -90,14 +91,15 @@ app.post("/api/register", async (req, res) => {
                 email: req.body.email,
             };
 
-            const user = await User.create({
+            await User.create({
                 ...req.body,
                 motdepasse: bcrypt.hashSync(req.body.motdepasse, 10),
             });
 
-            const token = jwt.sign(response, process.env.JWT_SECRET);
-
-            res.json({ status: 201, data: { ...response, token: token } });
+            res.json({
+                status: 201,
+                data: response,
+            });
         } else {
             res.json({ message: "user email or username exists" });
         }
@@ -106,4 +108,35 @@ app.post("/api/register", async (req, res) => {
         res.json({ error: err.message });
     }
 });
+
+app.post("/api/login", async (req, res) => {
+    try {
+        const value = await Joi.object({
+            email: Joi.string().email(),
+            username: Joi.string().alphanum().min(3),
+            motdepasse: Joi.string().min(3).required(),
+        }).validateAsync(req.body);
+
+        const user = await User.findOne({
+            $or: [{ email: value?.email }, { username: value?.username }],
+        });
+
+        if (user && bcrypt.compareSync(value.motdepasse, user.motdepasse)) {
+            const response = {
+                username: req.body.username,
+                email: req.body.email,
+            };
+
+            const token = jwt.sign(response, process.env.JWT_SECRET);
+
+            res.json({ status: 200, data: { ...response, token: token } });
+        } else {
+            res.json({ message: "user credentials are invalid" });
+        }
+    } catch (err) {
+        console.log(err);
+        res.json({ error: err.message });
+    }
+});
+
 module.exports = app;
